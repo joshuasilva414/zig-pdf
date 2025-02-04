@@ -1,5 +1,5 @@
 const std = @import("std");
-const pdflib = @import("root.zig");
+const pdflib = @import("lib/pdf.zig");
 const PDFReader = pdflib.PDFReader;
 const PDF = pdflib.PDF;
 

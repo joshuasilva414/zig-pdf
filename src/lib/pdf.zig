@@ -1,14 +1,7 @@
 const std = @import("std");
-const std_alloc = std.heap.page_allocator;
-
-const TokenType = enum(u8) {
-    Comment = '%',
-};
-
-pub const Token = struct {
-    token_type: TokenType,
-    value: []u8,
-};
+const toklib = @import("tokens.zig");
+const TokenType = toklib.TokenType;
+const Token = toklib.Token;
 
 pub const PDF = struct {
     version: []u8,
@@ -73,7 +66,3 @@ pub const PDFReader = struct {
         };
     }
 };
-
-// fn isDelimiter(byte: u8, comptime delimitters) bool {
-//     return std.mem.indexOf(u8, delimitters, byte) != null;
-// }
