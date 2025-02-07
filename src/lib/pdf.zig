@@ -5,7 +5,7 @@ const Token = toklib.Token;
 
 pub const PDF = struct {
     version: []u8,
-    tokens: std.ArrayList(Token),
+    tokens: toklib.Tokens,
 };
 
 pub const PDFReader = struct {
@@ -28,7 +28,7 @@ pub const PDFReader = struct {
     }
 
     pub fn read(self: PDFReader) !PDF {
-        var tokens: std.ArrayList(Token) = std.ArrayList(Token).init(self.allocator);
+        var tokens: toklib.Tokens = std.ArrayList(Token).init(self.allocator);
         var bytes: std.ArrayList(u8) = std.ArrayList(u8).init(self.allocator);
         defer bytes.deinit();
         var currentTokenType: ?TokenType = null;
@@ -43,26 +43,59 @@ pub const PDFReader = struct {
             switch (byte) {
                 '%' => {
                     if (currentTokenType) |tokenType| {
-                        const valueCopy = try self.allocator.alloc(u8, bytes.items.len);
-                        std.mem.copyForwards(u8, valueCopy, bytes.items);
-                        bytes.clearRetainingCapacity();
-                        const tok = Token{ .token_type = tokenType, .value = valueCopy };
+                        const tok = try self.completeToken(tokenType, &bytes);
                         try tokens.append(tok);
                     }
                     currentTokenType = TokenType.Comment;
                     continue;
                 },
-                else => {
-                    bytes.append(byte) catch |err| {
-                        return err;
-                    };
+                '\r', '\n' => {
+                    // Complete current token
+                    if (currentTokenType) |tokenType| {
+                        const tok = try self.completeToken(tokenType, &bytes);
+                        try tokens.append(tok);
+                    }
+                    currentTokenType = null;
                 },
+                //ignore whitespace
+                ' ', '\t' => {
+                    // If number, complete token
+                    if (currentTokenType) |tokenType| {
+                        const tok = try self.completeToken(tokenType, &bytes);
+                        try tokens.append(tok);
+                    }
+                },
+                '0'...'9', '+', '-', '.' => {
+                    if (currentTokenType) |tokenType| {
+                        try bytes.append(byte);
+                        if (tokenType == TokenType.Number) {
+                            _ = std.fmt.parseFloat(f64, bytes.items) catch {
+                                // Not a number, must be an identifier
+                                currentTokenType = TokenType.Identifier;
+                            };
+                        }
+                    } else {
+                        currentTokenType = TokenType.Number;
+                        try bytes.append(byte);
+                    }
+                },
+
+                else => try bytes.append(byte),
             }
         }
+
+        toklib.print(&tokens);
 
         return PDF{
             .version = tokens.items[0].value,
             .tokens = tokens,
         };
+    }
+
+    fn completeToken(self: *const PDFReader, tokenType: TokenType, bytes: *std.ArrayList(u8)) !Token {
+        const valueCopy = try self.allocator.alloc(u8, bytes.items.len);
+        std.mem.copyForwards(u8, valueCopy, bytes.items);
+        bytes.clearRetainingCapacity();
+        return Token{ .token_type = tokenType, .value = valueCopy };
     }
 };
