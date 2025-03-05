@@ -14,5 +14,4 @@ pub fn main() !void {
     const pdfReader = try PDFReader.init("data/test.pdf", allocator);
     const pdf = try pdfReader.read();
     std.debug.print("Read {s} from file\n", .{pdf.version});
-    // std.debug.print("Read {s} from file\n", .{pdf.version});
 }

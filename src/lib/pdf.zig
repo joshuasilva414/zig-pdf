@@ -36,11 +36,12 @@ pub const PDFReader = struct {
         var buff: [1]u8 = undefined;
 
         while (true) {
-            const bytesRead = try self.fileReader.read(&buff);
-            if (bytesRead == 0) break;
+            const innerBytesRead = try self.fileReader.read(&buff);
+            if (innerBytesRead == 0) break;
 
-            const byte = buff[0];
-            switch (byte) {
+            const innerByte = buff[0];
+
+            switch (innerByte) {
                 '%' => {
                     if (currentTokenType) |tokenType| {
                         const tok = try self.completeToken(tokenType, &bytes);
@@ -66,8 +67,8 @@ pub const PDFReader = struct {
                     }
                 },
                 '0'...'9', '+', '-', '.' => {
+                    try bytes.append(innerByte);
                     if (currentTokenType) |tokenType| {
-                        try bytes.append(byte);
                         if (tokenType == TokenType.Number) {
                             _ = std.fmt.parseFloat(f64, bytes.items) catch {
                                 // Not a number, must be an identifier
@@ -76,18 +77,68 @@ pub const PDFReader = struct {
                         }
                     } else {
                         currentTokenType = TokenType.Number;
-                        try bytes.append(byte);
                     }
                 },
-
-                else => try bytes.append(byte),
+                '<' => {
+                    if (tokens.getLast().token_type == TokenType.LAngleBracket) {
+                        var lastToken = tokens.pop();
+                        lastToken.token_type = TokenType.RDoubleAngleBracket;
+                        try tokens.append(lastToken);
+                        currentTokenType = null;
+                    } else {
+                        try tokens.append(Token{ .token_type = TokenType.LAngleBracket, .value = null });
+                        currentTokenType = null;
+                    }
+                },
+                '>' => {
+                    if (tokens.getLast().token_type == TokenType.RAngleBracket) {
+                        var lastToken = tokens.pop();
+                        lastToken.token_type = TokenType.RDoubleAngleBracket;
+                        try tokens.append(lastToken);
+                        currentTokenType = null;
+                    } else if (tokens.getLast().token_type == TokenType.Tilda) {
+                        var lastToken = tokens.pop();
+                        lastToken.token_type = TokenType.RAngleTilda;
+                        try tokens.append(lastToken);
+                        currentTokenType = null;
+                    } else {
+                        try tokens.append(Token{ .token_type = TokenType.RAngleBracket, .value = null });
+                        currentTokenType = null;
+                    }
+                },
+                '~' => {
+                    if (tokens.getLast().token_type == TokenType.LAngleBracket) {
+                        var lastToken = tokens.pop();
+                        lastToken.token_type = TokenType.LAngleTilda;
+                        try tokens.append(lastToken);
+                        currentTokenType = null;
+                    } else {
+                        try tokens.append(Token{ .token_type = TokenType.Tilda, .value = null });
+                        currentTokenType = null;
+                    }
+                },
+                '(' => {
+                    if (currentTokenType) |tokenType| {
+                        const tok = try self.completeToken(tokenType, &bytes);
+                        try tokens.append(tok);
+                    }
+                    try tokens.append(Token{ .token_type = TokenType.LParen, .value = null });
+                },
+                ')' => {
+                    if (currentTokenType) |tokenType| {
+                        const tok = try self.completeToken(tokenType, &bytes);
+                        try tokens.append(tok);
+                    }
+                    currentTokenType = null;
+                },
+                else => try bytes.append(innerByte),
             }
         }
 
-        toklib.print(&tokens);
+        toklib.print(&tokens, null, null);
 
         return PDF{
-            .version = tokens.items[0].value,
+            .version = tokens.items[0].value.?,
             .tokens = tokens,
         };
     }
@@ -99,3 +150,8 @@ pub const PDFReader = struct {
         return Token{ .token_type = tokenType, .value = valueCopy };
     }
 };
+
+fn matchSymbol(symbol: []const u8, bytes: *std.ArrayList(u8)) bool {
+    if (bytes.items.len < symbol.len) return false;
+    return std.mem.eql(u8, bytes.items[0..symbol.len], symbol);
+}
