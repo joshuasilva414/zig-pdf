@@ -11,7 +11,7 @@ pub fn main() !void {
     defer file.close();
 
     const allocator = std.heap.page_allocator;
-    const pdfReader = try PDFReader.init("data/test.pdf", allocator);
+    const pdfReader = try PDFReader.init("data/hello.pdf", allocator);
     const pdf = try pdfReader.read();
     std.debug.print("Read {s} from file\n", .{pdf.version});
 }

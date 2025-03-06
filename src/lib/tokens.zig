@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const TokenType = enum(u8) { Comment, Number, Identifier, LParen, RParen, LAngleBracket, RAngleBracket, RDoubleAngleBracket, LDoubleAngleBracket, LeftBrace, RightBrace, LAngleTilda, RAngleTilda, Tilda, HexData };
+pub const TokenType = enum { Comment, Number, Identifier, LParen, RParen, LAngleBracket, RAngleBracket, RDoubleAngleBracket, LDoubleAngleBracket, LeftBrace, RightBrace, LAngleTilda, RAngleTilda, Tilda, HexData, NameLiteral };
 
 pub const Tokens: type = std.ArrayList(Token);
 
@@ -36,5 +36,6 @@ fn typeToString(tokenType: TokenType) []const u8 {
         TokenType.RAngleTilda => return "RAngleTilda",
         TokenType.Tilda => return "Tilda",
         TokenType.HexData => return "HexData",
+        TokenType.NameLiteral => return "NameLiteral",
     }
 }
