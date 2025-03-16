@@ -26,36 +26,15 @@ pub fn tokenize(reader: *const std.fs.File.Reader, allocator: std.mem.Allocator)
                 currentTokenType = TokenType.Comment;
                 continue;
             },
-            '\r', '\n' => {
-                // Complete current token
-                if (bytes.items.len > 0) {
-                    const tok = try completeToken(allocator, currentTokenType orelse TokenType.Name, &bytes);
-                    try tokens.append(tok);
-                }
-                currentTokenType = null;
-            },
             //ignore whitespace
-            ' ', '\t' => {
+            ' ', '\t', '\r', '\n' => {
                 // If number, complete token
-                if (currentTokenType) |tokenType| {
+                if (bytes.items.len > 0) {
+                    const tokenType = currentTokenType orelse if (isNumber(bytes.items)) TokenType.Number else TokenType.Name;
                     const tok = try completeToken(allocator, tokenType, &bytes);
                     try tokens.append(tok);
                 }
                 currentTokenType = null;
-            },
-            '0'...'9', '+', '-', '.' => {
-                try bytes.append(innerByte);
-                // std.debug.print("bytes: {s}\n", .{bytes.items});
-                if (currentTokenType) |tokenType| {
-                    if (tokenType == TokenType.Number) {
-                        _ = std.fmt.parseFloat(f64, bytes.items) catch {
-                            // Not a number, must be an identifier
-                            currentTokenType = TokenType.Identifier;
-                        };
-                    }
-                } else {
-                    currentTokenType = TokenType.Number;
-                }
             },
             '/' => {
                 if (currentTokenType) |tokenType| {
@@ -133,4 +112,11 @@ fn completeToken(allocator: std.mem.Allocator, tokenType: TokenType, bytes: *std
     std.mem.copyForwards(u8, valueCopy, bytes.items);
     bytes.clearRetainingCapacity();
     return Token{ .token_type = tokenType, .value = valueCopy };
+}
+
+fn isNumber(bytes: []const u8) bool {
+    if (std.fmt.parseFloat(f64, bytes) catch null) |_| {
+        return true;
+    }
+    return false;
 }
