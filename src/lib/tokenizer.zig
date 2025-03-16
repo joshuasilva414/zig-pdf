@@ -28,8 +28,8 @@ pub fn tokenize(reader: *const std.fs.File.Reader, allocator: std.mem.Allocator)
             },
             '\r', '\n' => {
                 // Complete current token
-                if (currentTokenType) |tokenType| {
-                    const tok = try completeToken(allocator, tokenType, &bytes);
+                if (bytes.items.len > 0) {
+                    const tok = try completeToken(allocator, currentTokenType orelse TokenType.Name, &bytes);
                     try tokens.append(tok);
                 }
                 currentTokenType = null;
@@ -41,9 +41,11 @@ pub fn tokenize(reader: *const std.fs.File.Reader, allocator: std.mem.Allocator)
                     const tok = try completeToken(allocator, tokenType, &bytes);
                     try tokens.append(tok);
                 }
+                currentTokenType = null;
             },
             '0'...'9', '+', '-', '.' => {
                 try bytes.append(innerByte);
+                // std.debug.print("bytes: {s}\n", .{bytes.items});
                 if (currentTokenType) |tokenType| {
                     if (tokenType == TokenType.Number) {
                         _ = std.fmt.parseFloat(f64, bytes.items) catch {
